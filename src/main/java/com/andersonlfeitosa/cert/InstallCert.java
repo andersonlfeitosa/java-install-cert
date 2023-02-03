@@ -1,40 +1,49 @@
 package com.andersonlfeitosa.cert;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
-import java.net.InetSocketAddress;
-import javax.net.ssl.*;
-import java.io.*;
 import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+
 /**
- * Originally from:
- * http://blogs.sun.com/andreas/resource/InstallCert.java
- * Use:
- * java InstallCert hostname
- * Example: 
- * % java InstallCert ecc.fedora.redhat.com
+ * Originally from: http://blogs.sun.com/andreas/resource/InstallCert.java Use:
+ * java InstallCert hostname Example: % java InstallCert ecc.fedora.redhat.com
  *
- * Class used to add the server's certificate to the KeyStore
- * with your trusted certificates.
+ * Class used to add the server's certificate to the KeyStore with your trusted
+ * certificates.
  */
 public class InstallCert {
 
     public static void main(String[] args) throws Exception {
 
-        String host       = null;
-        int    port       = -1;
+        String host = null;
+        int port = -1;
         char[] passphrase = null;
 
         // proxy
-        boolean           useProxy   = false;
-        String            proxyHost  = null;
-        int               proxyPort  = -1;
-        InetSocketAddress proxyAddr  = null;
-        Socket            underlying = null;
+        boolean useProxy = false;
+        String proxyHost = null;
+        int proxyPort = -1;
+        InetSocketAddress proxyAddr = null;
+        Socket underlying = null;
 
         int numArg = 0;
         int nbArgs = args.length;
@@ -47,21 +56,17 @@ public class InstallCert {
                 useProxy = true;
                 String[] c = proxy.split(":");
                 proxyHost = c[0];
-                proxyPort = Integer.parseInt(c[1]);  // proxy port is mandatory (we don't default to 8080)
-            }
-            else if (arg.startsWith("--quiet")) {
+                proxyPort = Integer.parseInt(c[1]); // proxy port is mandatory (we don't default to 8080)
+            } else if (arg.startsWith("--quiet")) {
                 isQuiet = true;
-            }
-            else if (host == null) {  // 1st argument is the "host:port"
+            } else if (host == null) { // 1st argument is the "host:port"
                 String[] c = arg.split(":");
                 host = c[0];
                 port = (c.length == 1) ? 443 : Integer.parseInt(c[1]);
-            }
-            else if (passphrase == null) {  //  2nd argument is the keystore passphrase
+            } else if (passphrase == null) { // 2nd argument is the keystore passphrase
                 passphrase = arg.toCharArray();
-            }
-            else {
-                invalidArgs = true;  // too many args
+            } else {
+                invalidArgs = true; // too many args
             }
         }
 
@@ -70,13 +75,18 @@ public class InstallCert {
         }
 
         if (invalidArgs) {
-            System.out.println("Usage: java InstallCert [--proxy=proxyHost:proxyPort] host[:port] [passphrase] [--quiet]");
+            System.out.println(
+                    "Usage: java-install-cert [--proxy=proxyHost:proxyPort] host[:port] [passphrase] [--quiet]");
             return;
         }
 
         // default values
-        if (port       == -1  ) { port       = 443; }
-        if (passphrase == null) { passphrase = "changeit".toCharArray(); }
+        if (port == -1) {
+            port = 443;
+        }
+        if (passphrase == null) {
+            passphrase = "changeit".toCharArray();
+        }
 
         File file = new File("jssecacerts");
         if (file.isFile() == false) {
@@ -103,10 +113,11 @@ public class InstallCert {
         tmf.init(ks);
         X509TrustManager defaultTrustManager = (X509TrustManager) tmf.getTrustManagers()[0];
         SavingTrustManager tm = new SavingTrustManager(defaultTrustManager);
-        context.init(null, new TrustManager[]{tm}, null);
+        context.init(null, new TrustManager[] { tm }, null);
         SSLSocketFactory factory = context.getSocketFactory();
 
-        System.out.println("Opening connection to " + host + ":" + port + (useProxy ? (" via proxy "+proxyHost+":"+proxyPort) : "") + " ...");
+        System.out.println("Opening connection to " + host + ":" + port
+                + (useProxy ? (" via proxy " + proxyHost + ":" + proxyPort) : "") + " ...");
         SSLSocket socket;
         if (useProxy) {
             underlying.connect(new InetSocketAddress(host, port));
@@ -154,8 +165,7 @@ public class InstallCert {
         if (isQuiet) {
             System.out.println("Adding first certificate to trusted keystore");
             k = 0;
-        }
-        else {
+        } else {
             System.out.println("Enter certificate to add to trusted keystore or 'q' to quit: [1]");
             String line = reader.readLine().trim();
             try {
@@ -178,6 +188,13 @@ public class InstallCert {
         System.out.println(cert);
         System.out.println();
         System.out.println("Added certificate to keystore 'jssecacerts' using alias '" + alias + "'");
+
+        System.out.println();
+        System.out.println("Execute: ");
+        System.out.println("keytool -exportcert -alias " + alias + " -keystore jssecacerts -storepass changeit -file "
+                + alias + ".cer");
+        System.out
+                .println("keytool -importcert -alias " + host + " -cacerts -storepass changeit -file " + host + ".cer");
     }
 
     private static final char[] HEXDIGITS = "0123456789abcdef".toCharArray();
@@ -202,17 +219,21 @@ public class InstallCert {
             this.tm = tm;
         }
 
+        @Override
         public X509Certificate[] getAcceptedIssuers() {
-            // This change has been done due to the following resolution advised for Java 1.7+
+            // This change has been done due to the following resolution advised for Java
+            // 1.7+
             // http://infposs.blogspot.kr/2013/06/installcert-and-java-7.html
             return new X509Certificate[0];
-            //throw new UnsupportedOperationException();
+            // throw new UnsupportedOperationException();
         }
 
+        @Override
         public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
             this.chain = chain;
             tm.checkServerTrusted(chain, authType);
