@@ -193,8 +193,8 @@ public class InstallCert {
         System.out.println("Execute: ");
         System.out.println("keytool -exportcert -alias " + alias + " -keystore jssecacerts -storepass changeit -file "
                 + alias + ".cer");
-        System.out
-                .println("keytool -importcert -alias " + host + " -cacerts -storepass changeit -file " + host + ".cer");
+        System.out.println(
+                "keytool -importcert -alias " + host + " -cacerts -storepass changeit -file " + alias + ".cer");
     }
 
     private static final char[] HEXDIGITS = "0123456789abcdef".toCharArray();
