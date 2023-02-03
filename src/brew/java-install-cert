@@ -1,0 +1,3 @@
+#!/bin/bash
+
+java -jar ##PREFIX##/java-install-cert.jar & 
